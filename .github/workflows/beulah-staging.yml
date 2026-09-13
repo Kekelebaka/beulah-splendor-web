@@ -49,7 +49,25 @@ jobs:
 
       # ── vinext build ──
       - name: vinext build
-        run: npm run build:vinext
+        run: |
+          echo "=== vinext build starting ==="
+          npm run build:vinext 2>&1 | tee vinext-build.log
+          echo "EXIT CODE: ${PIPESTATUS[0]}"
+          if [ "${PIPESTATUS[0]}" != "0" ]; then
+            echo "=== VINEXT BUILD FAILED ==="
+            echo "=== Last 50 lines of output ==="
+            tail -50 vinext-build.log
+            exit 1
+          fi
+
+      # ── Upload build logs on failure ──
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vinext-build-logs
+          path: vinext-build.log
+          retention-days: 7
 
       # ── Create D1 database if needed ──
       - name: Ensure D1 staging database exists
