@@ -1,38 +1,19 @@
 import type { NextConfig } from "next";
-import { fileURLToPath } from "url";
-import { dirname, resolve } from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 /**
  * Beulah Splendor — Next.js configuration.
  *
- * vinext handles the Cloudflare Workers runtime via vite.config.ts.
- * This file only contains Next.js-specific settings.
+ * vinext handles Cloudflare Workers integration via vite.config.ts.
+ * This file is passed through by vinext for Next.js-specific settings only.
  *
- * The webpack plugin below aliases `cloudflare:workers` to a local mock
- * so that `next build` works without the Workers runtime.
+ * NOTE: The webpack mock for cloudflare:workers is NOT needed under vinext.
+ * @cloudflare/vite-plugin provides the real module at build time.
+ * For standard `next build` without vinext, use src/lib/cf-env-mock.ts manually.
  */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
     formats: ["image/avif", "image/webp"],
-  },
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      const mockPath = resolve(__dirname, "src/lib/cf-env-mock.ts");
-      config.plugins = config.plugins || [];
-      config.plugins.push(
-        new (require("webpack").NormalModuleReplacementPlugin)(
-          /^cloudflare:workers$/,
-          (resource: { request: string }) => {
-            resource.request = mockPath;
-          }
-        )
-      );
-    }
-    return config;
   },
 };
 
