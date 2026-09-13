@@ -27,9 +27,18 @@ export const metadata: Metadata = {
     title: "Beulah Splendor — Private Care for Body, Beauty & Wellbeing",
     description:
       "Private, founder-led wellness and beauty practice in Pretoria.",
+    images: [
+      {
+        url: "/og-image.svg",
+        width: 1200,
+        height: 630,
+        alt: "Beulah Splendor — Wellness & Beauty",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
+    images: ["/og-image.svg"],
   },
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "https://beulahsplendor.co.za"

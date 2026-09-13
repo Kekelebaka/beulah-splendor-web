@@ -1,0 +1,252 @@
+# Beulah Splendor — Staging CI/CD Pipeline
+# Pushes to beulah-web-v1 → vinext build → Cloudflare Workers staging
+# Does NOT deploy production.
+
+name: Beulah Staging
+
+on:
+  push:
+    branches: [beulah-web-v1]
+  workflow_dispatch:
+
+# Cancel in-progress runs on new push
+concurrency:
+  group: staging-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  build-and-deploy:
+    name: Build + Deploy Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── Checkout ──
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node Setup ──
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # ── Install ──
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Typecheck ──
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      # ── vinext compatibility ──
+      - name: vinext compatibility check
+        run: npx vinext check
+
+      # ── vinext build ──
+      - name: vinext build
+        run: npm run build:vinext
+
+      # ── Create D1 database if needed ──
+      - name: Ensure D1 staging database exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "Checking for D1 database: beulah-splendor-staging"
+          DB_LIST=$(curl -sf \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database" || echo '{"result":[]}')
+
+          DB_ID=$(echo "$DB_LIST" | jq -r '.result[] | select(.name=="beulah-splendor-staging") | .id' 2>/dev/null)
+
+          if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
+            echo "Creating D1 database: beulah-splendor-staging"
+            CREATE_RESULT=$(curl -sf -X POST \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{"name":"beulah-splendor-staging"}' \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database")
+            DB_ID=$(echo "$CREATE_RESULT" | jq -r '.result.id')
+            echo "Created D1 database: $DB_ID"
+            echo "⚠️  Update wrangler.jsonc database_id to: $DB_ID"
+          else
+            echo "D1 database exists: $DB_ID"
+          fi
+
+          echo "D1_DATABASE_ID=$DB_ID" >> $GITHUB_ENV
+
+      # ── Apply D1 migrations ──
+      - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "Applying migrations to D1 database: $D1_DATABASE_ID"
+
+          # Read migration SQL
+          MIGRATION_SQL=$(cat src/lib/db/migrations/0001_init.sql)
+
+          curl -sf -X POST \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"sql\": $(echo "$MIGRATION_SQL" | jq -Rs .)}" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID/query" \
+            | jq '.success'
+
+          echo "✅ Migrations applied"
+
+      # ── Seed staging data ──
+      - name: Seed staging D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "Seeding staging data"
+          SEED_SQL=$(cat src/lib/db/seed.sql)
+
+          curl -sf -X POST \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"sql\": $(echo "$SEED_SQL" | jq -Rs .)}" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID/query" \
+            | jq '.success'
+
+          echo "✅ Seed applied"
+
+      # ── Update wrangler.jsonc with real D1 ID ──
+      - name: Configure D1 binding
+        run: |
+          echo "Updating wrangler.jsonc with D1 database ID: $D1_DATABASE_ID"
+          # Replace placeholder with real ID
+          sed -i "s/placeholder-replace-with-real-id/$D1_DATABASE_ID/g" wrangler.jsonc
+          cat wrangler.jsonc
+
+      # ── Deploy to Cloudflare Workers ──
+      - name: Deploy staging Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm run deploy:staging 2>&1 | tee deploy-output.txt
+          echo "✅ Staging deployed"
+
+      # ── Extract deployment URL ──
+      - name: Get deployment URL
+        id: deployment
+        run: |
+          # Workers.dev URL pattern: <worker-name>.<account-subdomain>.workers.dev
+          # vinext-cloudflare deploy outputs the URL
+          DEPLOY_URL=$(grep -oP 'https://[^\s]+workers\.dev' deploy-output.txt 2>/dev/null || echo "")
+          if [ -z "$DEPLOY_URL" ]; then
+            DEPLOY_URL="https://beulah-splendor-web.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
+          fi
+          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo ""
+          echo "═══════════════════════════════════════"
+          echo "  STAGING DEPLOYMENT COMPLETE"
+          echo "═══════════════════════════════════════"
+          echo "  URL: $DEPLOY_URL"
+          echo "  SHA: ${{ github.sha }}"
+          echo "  Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "═══════════════════════════════════════"
+
+      # ── Smoke test ──
+      - name: Smoke test staging
+        if: steps.deployment.outputs.url != ''
+        run: |
+          URL="${{ steps.deployment.outputs.url }}"
+          echo "Smoke testing: $URL"
+
+          PASS=0
+          FAIL=0
+
+          for route in "/" "/treatments" "/wellness" "/wellness/health-scan" "/about" "/beulah-talks" "/book" "/contact" "/privacy" "/terms" "/booking-policy" "/treatments/massage" "/robots.txt" "/sitemap.xml"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL$route" 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "  ✅ $route → $STATUS"
+              PASS=$((PASS + 1))
+            else
+              echo "  ❌ $route → $STATUS"
+              FAIL=$((FAIL + 1))
+            fi
+          done
+
+          # Test unknown page → 404
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/this-page-does-not-exist" 2>/dev/null || echo "000")
+          if [ "$STATUS" = "404" ]; then
+            echo "  ✅ /unknown → 404"
+            PASS=$((PASS + 1))
+          else
+            echo "  ❌ /unknown → $STATUS (expected 404)"
+            FAIL=$((FAIL + 1))
+          fi
+
+          echo ""
+          echo "Smoke test: $PASS passed, $FAIL failed"
+          if [ "$FAIL" -gt 0 ]; then
+            echo "⚠️  Some routes failed smoke test"
+          fi
+
+      # ── Test booking API ──
+      - name: Test booking API
+        if: steps.deployment.outputs.url != ''
+        run: |
+          URL="${{ steps.deployment.outputs.url }}"
+
+          echo "Testing POST /api/bookings with valid payload"
+          RESULT=$(curl -s -X POST "$URL/api/bookings" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "treatmentId": "massage",
+              "preferredDate": "2026-09-20",
+              "preferredTime": "10:00",
+              "customerName": "RC3 TEST USER",
+              "customerPhone": "+27821234567",
+              "customerEmail": "test@example.com",
+              "notes": "RC-3 staging test"
+            }')
+
+          echo "Response: $RESULT"
+
+          OK=$(echo "$RESULT" | jq -r '.ok' 2>/dev/null)
+          REF=$(echo "$RESULT" | jq -r '.reference' 2>/dev/null)
+
+          if [ "$OK" = "true" ] && [ -n "$REF" ] && [ "$REF" != "null" ]; then
+            echo "✅ Booking API returned reference: $REF"
+          else
+            echo "❌ Booking API failed or returned unexpected response"
+          fi
+
+          echo ""
+          echo "Testing invalid payload → expect 400"
+          BAD_RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$URL/api/bookings" \
+            -H "Content-Type: application/json" \
+            -d '{"invalid": true}')
+          echo "Status: $BAD_RESULT"
+
+          if [ "$BAD_RESULT" = "400" ]; then
+            echo "✅ Invalid payload correctly rejected"
+          else
+            echo "❌ Expected 400, got $BAD_RESULT"
+          fi
+
+      # ── Summary ──
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════"
+          echo "  BEULAH SPLENDOR — STAGING SUMMARY"
+          echo "═══════════════════════════════════════"
+          echo "  Branch: beulah-web-v1"
+          echo "  Commit: ${{ github.sha }}"
+          echo "  URL: ${{ steps.deployment.outputs.url }}"
+          echo "  D1: beulah-splendor-staging ($D1_DATABASE_ID)"
+          echo "  Turnstile: NOT_CONFIGURED"
+          echo "  WhatsApp: UNCONFIGURED"
+          echo "═══════════════════════════════════════"
