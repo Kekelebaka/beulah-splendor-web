@@ -76,22 +76,45 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           echo "Checking for D1 database: beulah-splendor-staging"
-          DB_LIST=$(curl -sf \
+          echo "Account ID: $CLOUDFLARE_ACCOUNT_ID"
+          echo "Token set: $([ -n "$CLOUDFLARE_API_TOKEN" ] && echo 'YES' || echo 'NO')"
+
+          # List D1 databases
+          DB_LIST=$(curl -s \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database" || echo '{"result":[]}')
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database" 2>&1)
+
+          echo "D1 list response: $DB_LIST" | head -c 500
+
+          # Check for errors
+          SUCCESS=$(echo "$DB_LIST" | jq -r '.success' 2>/dev/null)
+          if [ "$SUCCESS" != "true" ]; then
+            echo "ERROR: D1 API call failed"
+            echo "$DB_LIST" | jq '.errors' 2>/dev/null
+            exit 1
+          fi
 
           DB_ID=$(echo "$DB_LIST" | jq -r '.result[] | select(.name=="beulah-splendor-staging") | .id' 2>/dev/null)
 
           if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
             echo "Creating D1 database: beulah-splendor-staging"
-            CREATE_RESULT=$(curl -sf -X POST \
+            CREATE_RESULT=$(curl -s -X POST \
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               -H "Content-Type: application/json" \
               -d '{"name":"beulah-splendor-staging"}' \
-              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database")
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database" 2>&1)
+
+            echo "Create response: $CREATE_RESULT" | head -c 500
+
+            CREATE_SUCCESS=$(echo "$CREATE_RESULT" | jq -r '.success' 2>/dev/null)
+            if [ "$CREATE_SUCCESS" != "true" ]; then
+              echo "ERROR: Failed to create D1 database"
+              echo "$CREATE_RESULT" | jq '.errors' 2>/dev/null
+              exit 1
+            fi
+
             DB_ID=$(echo "$CREATE_RESULT" | jq -r '.result.id')
             echo "Created D1 database: $DB_ID"
-            echo "⚠️  Update wrangler.jsonc database_id to: $DB_ID"
           else
             echo "D1 database exists: $DB_ID"
           fi
