@@ -1,5 +1,6 @@
 {
   "name": "beulah-splendor-web",
+  "main": "vinext/server/fetch-handler",
   "compatibility_date": "2025-09-01",
   "compatibility_flags": ["nodejs_compat"],
 
@@ -7,7 +8,7 @@
     {
       "binding": "DB",
       "database_name": "beulah-splendor-staging",
-      "database_id": "placeholder-replace-with-real-id"
+      "database_id": "8cace2ea-6f77-4560-8f3a-9533be90c93b"
     }
   ],
 
