@@ -1,9 +1,11 @@
 import { defineConfig } from "vite";
 import vinext from "vinext";
 import { cloudflare } from "@cloudflare/vite-plugin";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [
+    tailwindcss(),
     vinext({}),
     cloudflare({
       viteEnvironment: {
@@ -12,4 +14,15 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      external: [
+        "cloudflare:workers",
+        "cloudflare:email",
+        "cloudflare:sockets",
+        "cloudflare:workflows",
+        "cloudflare:node",
+      ],
+    },
+  },
 });
