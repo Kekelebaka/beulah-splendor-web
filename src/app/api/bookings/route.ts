@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { bookingSchema } from "@/lib/validation";
 import { insertBooking, generateReference, getDb } from "@/lib/db";
+import { TREATMENTS } from "@/lib/treatments";
 
 /**
  * POST /api/bookings
@@ -17,7 +18,16 @@ import { insertBooking, generateReference, getDb } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
+
     const parsed = bookingSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -32,6 +42,17 @@ export async function POST(request: Request) {
     }
 
     const data = parsed.data;
+
+    // --- Validate treatment exists before persistence. ---
+    const treatmentExists = TREATMENTS.some(
+      (t) => t.id === data.treatmentId && t.launchVisible
+    );
+    if (!treatmentExists) {
+      return NextResponse.json(
+        { ok: false, error: "Selected treatment is not available" },
+        { status: 400 }
+      );
+    }
 
     // --- Get D1 binding. If missing, return 503 (service unavailable). ---
     let db: D1Database;

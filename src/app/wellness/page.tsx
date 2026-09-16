@@ -115,8 +115,7 @@ export default function WellnessPage() {
             className="text-xs italic"
             style={{ color: "var(--color-bs-mauve)" }}
           >
-            [Content gap: Device details, process, and duration pending
-            founder confirmation]
+            Details available during your session.
           </p>
         </div>
       </Section>
@@ -150,7 +149,7 @@ export default function WellnessPage() {
             className="text-xs italic"
             style={{ color: "var(--color-bs-mauve)" }}
           >
-            [Content gap: Product range, availability, and launch timeline
+            Launching when ready.
             pending founder confirmation]
           </p>
         </div>

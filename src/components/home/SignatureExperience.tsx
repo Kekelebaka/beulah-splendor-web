@@ -61,8 +61,7 @@ export function SignatureExperience() {
           className="mt-6 text-xs italic"
           style={{ color: "var(--color-bs-mauve)" }}
         >
-          [Content gap: Beulah Reset protocol, duration, price, and scope
-          pending founder confirmation]
+          Details available on request.
         </p>
       </div>
     </section>

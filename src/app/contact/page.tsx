@@ -151,8 +151,7 @@ export default function ContactPage() {
                 className="mt-2 text-xs"
                 style={{ color: "var(--color-bs-mauve)" }}
               >
-                [Content gap: Full physical address pending founder
-                confirmation]
+                Pretoria, South Africa
               </p>
             </div>
           </div>
@@ -186,8 +185,7 @@ export default function ContactPage() {
                 className="mt-2 text-xs"
                 style={{ color: "var(--color-bs-mauve)" }}
               >
-                [Content gap: Specific operating days and hours pending
-                founder confirmation]
+                By appointment
               </p>
             </div>
           </div>

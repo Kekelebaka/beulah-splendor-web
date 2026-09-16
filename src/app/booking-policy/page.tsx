@@ -43,8 +43,7 @@ export default function BookingPolicyPage() {
           className="text-sm"
           style={{ color: "var(--color-bs-mauve)" }}
         >
-          [Content gap: Cancellation policy, deposit policy, late arrival
-          policy — pending founder confirmation]
+          Please contact Beula for full policy details.
         </p>
       </div>
     </Section>

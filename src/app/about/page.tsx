@@ -54,7 +54,7 @@ export default function AboutPage() {
                 className="text-xs mt-1"
                 style={{ color: "var(--color-bs-mauve)" }}
               >
-                [Content gap: Approved founder portrait pending]
+                Founder portrait coming soon.
               </p>
             </div>
           </div>
@@ -111,8 +111,7 @@ export default function AboutPage() {
               className="mt-6 text-xs italic"
               style={{ color: "var(--color-bs-mauve)" }}
             >
-              [Content gap: Full founder bio, certifications, training,
-              and years of experience — pending founder confirmation]
+              More about Beula coming soon.
             </p>
           </div>
         </div>
@@ -179,8 +178,7 @@ export default function AboutPage() {
             className="mt-4 text-xs italic"
             style={{ color: "var(--color-bs-mauve)" }}
           >
-            [Content gap: Beulah Naturals, Beulah Circle details, and
-            wellness centre timeline — pending founder confirmation]
+            Exciting things are in development.
           </p>
         </div>
       </Section>

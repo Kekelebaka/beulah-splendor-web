@@ -36,7 +36,7 @@ export function ProofSection() {
             className="mt-2 text-xs"
             style={{ color: "var(--color-bs-soft-lilac)" }}
           >
-            [Content gap: Real testimonials needed from founder]
+            &nbsp;
           </p>
         </div>
       </Section>

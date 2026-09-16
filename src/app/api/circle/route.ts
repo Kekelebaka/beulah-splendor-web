@@ -15,7 +15,16 @@ import { insertCircleInterest, getDb } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
+
     const parsed = circleInterestSchema.safeParse(body);
 
     if (!parsed.success) {

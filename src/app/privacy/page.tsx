@@ -25,8 +25,7 @@ export default function PrivacyPage() {
           className="text-sm"
           style={{ color: "var(--color-bs-mauve)" }}
         >
-          [Content gap: Full privacy policy / POPIA compliance text
-          pending legal review and founder approval]
+          Your privacy matters to us. Full policy details coming soon.
         </p>
       </div>
     </Section>

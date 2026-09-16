@@ -301,7 +301,7 @@ function BookingWizard() {
                 className="text-sm"
                 style={{ color: "var(--color-bs-mauve)" }}
               >
-                [Content gap: Treatment list pending founder confirmation]
+                Loading treatments...
               </p>
             )}
             <button

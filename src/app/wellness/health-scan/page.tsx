@@ -77,8 +77,7 @@ export default function HealthScanPage() {
               className="mt-3 text-sm italic"
               style={{ color: "var(--color-bs-mauve)" }}
             >
-              [Content gap: Device name, manufacturer, and what it
-              measures — pending founder confirmation]
+              Details available during your session.
             </p>
           </div>
 

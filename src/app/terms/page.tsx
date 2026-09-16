@@ -25,7 +25,7 @@ export default function TermsPage() {
           className="text-sm"
           style={{ color: "var(--color-bs-mauve)" }}
         >
-          [Content gap: Full terms of service pending legal review and
+          Full terms coming soon. Please contact Beula for current terms.
           founder approval]
         </p>
       </div>
